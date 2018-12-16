@@ -61,29 +61,38 @@ impl Dvg {
         }
     }
 
+    fn screen_y(y: i16, h: u32) -> i16{
+        // we find we have to flip y
+        // Hitch-Hacker's guide suggests that 0,0 is the top left corner
+        // However, the Computer Archeology documentation seems to be correct
+        // in its assertion that 0,0 is the bottom left corner
+        // also, y 0 thru 95 and 928 thru 1023 are not used
+        (h as i32 - ((y - 96) as i32 * h as i32 / 832)) as i16
+    }
+
+    fn screen_x(x: i16, w: u32) -> i16 {
+        (x as i32 * w as i32 / 1024) as i16
+    }
+
     fn line(&mut self, x: i16, y: i16, z: u16, canvas: &mut Canvas<Window>) {
         if z != 0 {
             let color = pixels::Color::RGBA(255, 255, 255, z as u8 * 17); 
-            let (h,w) = canvas.output_size().unwrap();
+            let (w,h) = canvas.output_size().unwrap();
 
-            // we find we have to flip y
-            // Hitch-Hacker's guide suggests that 0,0 is the top left corner
-            // However, the Computer Archeology documentation seems to be correct
-            // in its assertion that 0,0 is the bottom left corner
             if x == self.x && y == self.y {
                 // this is quite unsatisfactory compared with the vector display
                 // where a single point can be extremely bright
                 let _ = canvas.pixel(
-                    (x as i32 * w as i32 / 1024) as i16,
-                    (h as i32 - (y as i32 * h as i32 / 1024)) as i16,
+                    Dvg::screen_x(x, w),
+                    Dvg::screen_y(y, h),
                     color);
             }
             else {
                 let _ = canvas.line(
-                    (self.x as i32 * w as i32 / 1024) as i16,
-                    (h as i32 - (self.y as i32 * h as i32 / 1024)) as i16,
-                    (x as i32 * w as i32 / 1024) as i16,
-                    (h as i32 - (y as i32 * h as i32 / 1024)) as i16,
+                    Dvg::screen_x(x, w),
+                    Dvg::screen_y(y, h),
+                    Dvg::screen_x(self.x, w),
+                    Dvg::screen_y(self.y, h),
                     color);
             }
         }

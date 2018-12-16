@@ -73,12 +73,19 @@ fn main() {
                                 // there must be a better way of doing this...
                                 // if we start maximised, we can then use the
                                 // resulting client area size to discover the
-                                // maximum viewable square window
-                                let (h, w) = canvas.output_size().unwrap();
-                                let s = h.min(w);
-                                canvas.window_mut().set_maximum_size(s, s).unwrap();
+                                // maximum viewable 1024:832 window (the top
+                                // and bottom 96 y co-ordinates are not actually
+                                // used)
+                                let (w, h) = canvas.output_size().unwrap();
+                                let best_w_fit = (w / 16) < (h / 13);
+                                let nw = if best_w_fit {w} else {1024 * h / 832};
+                                let nh = if best_w_fit {832 * w / 1024} else {h};
+                                canvas.window_mut().set_maximum_size(nw, nh).unwrap();
                                 canvas.window_mut().restore();
                                 canvas.window_mut().set_position(WindowPos::Centered, WindowPos::Centered);
+                                if debug {
+                                    println!("Screen size {} x {}", nw, nh);
+                                }
                             },
                             _ => {},
                         }
@@ -112,9 +119,9 @@ fn main() {
         if delta < tick_time {
             sleep(tick_time - delta);
         }
-        else {
-            println!("Overrun {:?}", delta - tick_time);
-        }
+        //else {
+        //    println!("Overrun {:?}", delta - tick_time);
+        //}
     }
 }
 
