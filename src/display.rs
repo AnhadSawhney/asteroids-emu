@@ -63,9 +63,6 @@ impl Dvg {
 
     fn screen_y(y: i16, h: u32) -> i16{
         // we find we have to flip y
-        // Hitch-Hacker's guide suggests that 0,0 is the top left corner
-        // However, the Computer Archeology documentation seems to be correct
-        // in its assertion that 0,0 is the bottom left corner
         // also, y 0 thru 95 and 928 thru 1023 are not used
         (h as i32 - ((y - 96) as i32 * h as i32 / 832)) as i16
     }
@@ -188,8 +185,6 @@ impl Dvg {
             },
             Instruction::SVEC => {
                 let sf = ((op_word1 & 0x800) >> 11) + ((op_word1 & 0x8) >> 2);
-                // Hitch Hacker's guide seems to mix up X and Y here whereas
-                // Computer Archeology seems to get it right
                 let ys = (op_word1 & 0x400) != 0;
                 let delta_y = op_word1 & 0x300;
                 let xs = (op_word1 & 0x4) != 0;

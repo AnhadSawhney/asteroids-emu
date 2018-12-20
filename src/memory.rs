@@ -83,7 +83,7 @@ impl MappedIO {
 
 pub struct Memory {
     game_ram: [u8; 1024],    // 0000-03FF / 8000-83FF
-    dvg_ram: [u8; 4096],     // 4000-4FFF / C000-DFFF
+    dvg_ram: [u8; 4096],     // 4000-4FFF / C000-CFFF
     dvg_rom: [u8; 2048],     // 5000-57FF / D000-D7FF
     game_rom: [u8; 6144],    // 6800-7FFF / E800-FFFF
     pub mapped_io: MappedIO, 

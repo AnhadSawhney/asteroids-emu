@@ -73,9 +73,7 @@ fn main() {
                                 // there must be a better way of doing this...
                                 // if we start maximised, we can then use the
                                 // resulting client area size to discover the
-                                // maximum viewable 1024:832 window (the top
-                                // and bottom 96 y co-ordinates are not actually
-                                // used)
+                                // maximum viewable 1024:832 window
                                 let (w, h) = canvas.output_size().unwrap();
                                 let best_w_fit = (w / 16) < (h / 13);
                                 let nw = if best_w_fit {w} else {1024 * h / 832};
@@ -83,6 +81,9 @@ fn main() {
                                 canvas.window_mut().set_maximum_size(nw, nh).unwrap();
                                 canvas.window_mut().restore();
                                 canvas.window_mut().set_position(WindowPos::Centered, WindowPos::Centered);
+                                // leave it so as user can go bigger if they
+                                // want to - albeit with incorrect aspect ratio
+                                canvas.window_mut().set_maximum_size(w, h).unwrap();
                                 if debug {
                                     println!("Screen size {} x {}", nw, nh);
                                 }
