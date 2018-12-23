@@ -6,10 +6,12 @@ mod cpu;
 mod memory;
 mod display;
 mod input;
+mod sound;
 
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::video::WindowPos;
+use sdl2::mixer::{DEFAULT_CHANNELS, INIT_OGG, AUDIO_S16LSB, Channel, MAX_VOLUME};
 use std::time::{Duration, Instant};
 use std::thread::sleep;
 use std::env;
@@ -21,6 +23,7 @@ const TICKS_PER_SLEEP: u32 = 20;
 use cpu::Cpu;
 use display::Dvg;
 use memory::Memory;
+use sound::Sounds;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -35,6 +38,16 @@ fn main() {
         .build()
         .unwrap();
 
+    let _audio = sdl_context.audio().unwrap();
+    sdl2::mixer::open_audio(
+        44_100, // frequency
+        AUDIO_S16LSB, //format
+        DEFAULT_CHANNELS,
+        1_024 // chunk size
+    ).unwrap();
+    let _mixer_context = sdl2::mixer::init(INIT_OGG).unwrap();
+    Channel::all().set_volume(MAX_VOLUME / 2);
+
     let tick_time = Duration::new(0, 1000000000 / 3000 * TICKS_PER_SLEEP);
 
     let mut canvas = window.into_canvas().build().unwrap();
@@ -44,6 +57,7 @@ fn main() {
     let mut cpu = Cpu::new(debug);
     let mut dvg = Dvg::new(debug);
     let mut memory = Memory::new();
+    let mut sounds = Sounds::new();
     cpu.reset(&memory);
     let mut next_nmi = NMI_CYCLES;
 
@@ -110,6 +124,7 @@ fn main() {
                     dvg.render(&mut memory, &mut canvas);
                 }
             }
+            sounds.play(&memory);
 
             memory.mapped_io.clck3khz = ((cpu.cycle / 500) & 0xFF) as u8;  
         }

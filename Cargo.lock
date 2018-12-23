@@ -1,4 +1,12 @@
 [[package]]
+name = "asteroids-emu"
+version = "0.1.0"
+dependencies = [
+ "find_folder 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdl2 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "bitflags"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -17,14 +25,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "cfg-if"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-
-[[package]]
-name = "emu"
-version = "0.1.0"
-dependencies = [
- "find_folder 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sdl2 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "find_folder"

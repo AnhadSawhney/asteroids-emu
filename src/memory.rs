@@ -29,15 +29,15 @@ pub struct MappedIO {
     pub godvg: u8,    // 0x3000
     lmpscns: u8,  // 0x3200
     watchdog: u8, // 0x3400
-    sndexp: u8,   // 0x3600
-    sndthump: u8, // 0x3a00
-    sndsaucr: u8, // from 0x3c00
-    sndsfire: u8,
-    sndselsau: u8,
-    sndthrust: u8,
-    sndfire: u8,
-    sndbonus: u8,
-    sndreset: u8, // 0x3e00
+    pub sndexp: u8,   // 0x3600
+    pub sndthump: u8, // 0x3a00
+    pub sndsaucr: u8, // from 0x3c00
+    pub sndsfire: u8,
+    pub sndselsau: u8,
+    pub sndthrust: u8,
+    pub sndfire: u8,
+    pub sndbonus: u8,
+    pub sndreset: u8, // 0x3e00
 }
 
 impl MappedIO {
@@ -161,11 +161,40 @@ impl Memory {
         else if a >= 0x4000 && a < 0x5000 {
             self.dvg_ram[a - 0x4000] = byte;
         }
-        else if a == 0x2001 {
-            self.mapped_io.clck3khz = byte;
-        }
-        else if a == 0x3000 {
-            self.mapped_io.godvg = byte;
+        else {
+            match a {
+                0x2001 => {
+                    self.mapped_io.clck3khz = byte;
+                },
+                0x3000 => {
+                    self.mapped_io.godvg = byte;
+                },
+                0x3600 => {
+                    self.mapped_io.sndexp = byte;
+                },
+                0x3A00 => {
+                    self.mapped_io.sndthump = byte;
+                },
+                0x3C00 => {
+                    self.mapped_io.sndsaucr = byte;
+                },
+                0x3C01 => {
+                    self.mapped_io.sndsfire = byte;
+                },
+                0x3C02 => {
+                    self.mapped_io.sndselsau = byte;
+                },
+                0x3C03 => {
+                    self.mapped_io.sndthrust = byte;
+                },
+                0x3C04 => {
+                    self.mapped_io.sndfire = byte;
+                },
+                0x3C05 => {
+                    self.mapped_io.sndbonus = byte;
+                },
+                _ => {},
+            }
         }
     }
 }

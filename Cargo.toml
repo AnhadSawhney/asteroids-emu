@@ -1,5 +1,5 @@
 [package]
-name = "emu"
+name = "asteroids-emu"
 version = "0.1.0"
 authors = ["Paul Marshall <paulama@ftml.net>"]
 
@@ -9,5 +9,5 @@ find_folder = "0.3.0"
 [dependencies.sdl2]
 version = "0.31"
 default-features = false
-features = ["gfx"]
+features = ["gfx","mixer"]
 

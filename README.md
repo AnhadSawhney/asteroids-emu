@@ -2,6 +2,10 @@
 
 Emulator to run Asteroids game ROM.
 
+If you just want to play retro games, probably what you really want is
+[MAME](https://www.mamedev.org/). This project is a bit of fun and a challenge
+to see if I can create a working emulator.
+
 ![Screenshot](screenshot.png "Screenshot")
 
 To build the emulator a [Rust](https://www.rust-lang.org) development
