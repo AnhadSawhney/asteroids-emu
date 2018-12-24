@@ -77,11 +77,12 @@ impl Dvg {
             let (w,h) = canvas.output_size().unwrap();
 
             if x == self.x && y == self.y {
-                // this is quite unsatisfactory compared with the vector display
-                // where a single point can be extremely bright
-                let _ = canvas.pixel(
+                // on the vector display, a single point can be extremely
+                // bright. we can't do that so we just go bigger.
+                let _ = canvas.filled_circle(
                     Dvg::screen_x(x, w),
                     Dvg::screen_y(y, h),
+                    2,
                     color);
             }
             else {
