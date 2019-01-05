@@ -24,9 +24,6 @@ pub fn update_from_input(keycode: Keycode, active: bool, memory: &mut Memory) {
         Keycode::Space => {
             memory.mapped_io.swhyper = mem_val;
         },
-        Keycode::C => {
-            memory.set_byte(0x53, 9);  // temp cheat to test bonus ship sound
-        },
         _ => {},
     }
 }
