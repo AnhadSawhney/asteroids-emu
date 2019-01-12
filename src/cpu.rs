@@ -60,6 +60,7 @@ enum Instruction {
     TXA,
     TXS,
     TYA,
+    INVALID,
 }
 
 #[derive(Copy, Clone)]
@@ -74,7 +75,8 @@ enum AddressingMode {
     Accumulator,
     OffsetXIndirect,
     IndirectOffsetY,
-    Indirect,
+    IndirectLocation,
+    AbsoluteLocation,
     NA,
 }
 
@@ -95,7 +97,8 @@ impl AddressingMode {
             AddressingMode::Accumulator => {format!("A")},
             AddressingMode::OffsetXIndirect => {format!("(${:02X},X)", op)},
             AddressingMode::IndirectOffsetY => {format!("(${:02X}),Y", op)},
-            AddressingMode::Indirect => {format!("(${:04X})", op)},
+            AddressingMode::IndirectLocation => {format!("(${:04X})", op)},
+            AddressingMode::AbsoluteLocation => {format!("${:04X}", op)},
             AddressingMode::NA => {format!("")},
         }
     }
@@ -173,7 +176,8 @@ impl Cpu {
             AddressingMode::Absolute |
             AddressingMode::AbsoluteOffsetX |
             AddressingMode::AbsoluteOffsetY |
-            AddressingMode::Indirect =>
+            AddressingMode::IndirectLocation |
+            AddressingMode::AbsoluteLocation =>
                 Some(self.load_word_from_pc(memory)),
             _ => None
         }
@@ -187,10 +191,7 @@ impl Cpu {
                    op_code, address)
         };
         // for now, any undocumented instructions will hang the processor
-        // although there are some that do have behaviours (eg those ending
-        // in binary 11 will execute the 10 and 01 instruction simultaneously)
         match op_code {
-            // this is going to be tedious...
             0x00 => DecodedInstruction {
                 address,
                 instruction: Instruction::BRK,
@@ -199,7 +200,7 @@ impl Cpu {
             0x20 => DecodedInstruction {
                 address,
                 instruction: Instruction::JSR,
-                addressing_mode: AddressingMode::Absolute,
+                addressing_mode: AddressingMode::AbsoluteLocation,
                 operand: Some(self.load_word_from_pc(memory))},
             0x40 => DecodedInstruction {
                 address,
@@ -331,12 +332,12 @@ impl Cpu {
                     0b101 => Instruction::BCS,
                     0b110 => Instruction::BNE,
                     0b111 => Instruction::BEQ,
-                    _ => {panic!("")}   // keep compiler happy
+                    _ => Instruction::INVALID,
                 };
                 DecodedInstruction {
                     address,
                     instruction,
-                    addressing_mode: AddressingMode::Immediate,
+                    addressing_mode: AddressingMode::Immediate, // we cheat and use immediate for relative
                     operand: self.fetch_operand(memory, AddressingMode::Immediate)}
             }
             op if op & 0b11 == 0b01 => {
@@ -349,7 +350,7 @@ impl Cpu {
                     0b101 => AddressingMode::ZeroPageOffsetX,
                     0b110 => AddressingMode::AbsoluteOffsetY,
                     0b111 => AddressingMode::AbsoluteOffsetX,
-                    _ => {panic!("")},  // keep compiler happy
+                    _ => AddressingMode::NA,
                 };
                 let instruction = match (op & 0b11100000) >> 5 {
                     0b000 => Instruction::ORA,
@@ -360,7 +361,7 @@ impl Cpu {
                     0b101 => Instruction::LDA,
                     0b110 => Instruction::CMP,
                     0b111 => Instruction::SBC,
-                    _ => {panic!("")},  // keep compiler happy
+                    _ => Instruction::INVALID,
                 };
                 // the one bad combination here is STA in immediate mode
                 if let Instruction::STA = instruction {
@@ -368,7 +369,7 @@ impl Cpu {
                         bad_opcode();
                     }
                 }
-                DecodedInstruction{
+                DecodedInstruction {
                     address,
                     instruction,
                     addressing_mode,
@@ -384,7 +385,7 @@ impl Cpu {
                     0b101 => Instruction::LDX,
                     0b110 => Instruction::DEC,
                     0b111 => Instruction::INC,
-                    _ => {panic!("")},  // keep compiler happy
+                    _ => Instruction::INVALID,
                 };
                 let addressing_mode = match (op & 0b11100) >> 2 {
                     0b000 => AddressingMode::Immediate,
@@ -432,7 +433,7 @@ impl Cpu {
                 if bad_combination {
                     bad_opcode();
                 }
-                DecodedInstruction{
+                DecodedInstruction {
                     address,
                     instruction,
                     addressing_mode,
@@ -444,7 +445,10 @@ impl Cpu {
                     0b001 => AddressingMode::ZeroPage,
                     0b011 => {
                         if op & 0b11100000 == 0b01100000 {
-                            AddressingMode::Indirect    // for JMP ()
+                            AddressingMode::IndirectLocation    // JMP ()
+                        }
+                        else if op & 0b11100000 == 0b01000000 {
+                            AddressingMode::AbsoluteLocation    // JMP
                         }
                         else {
                             AddressingMode::Absolute
@@ -461,9 +465,9 @@ impl Cpu {
                     0b101 => Instruction::LDY,
                     0b110 => Instruction::CPY,
                     0b111 => Instruction::CPX,
-                    _ => Instruction::NOP,  // use nop here to signify bad op code
+                    _ => Instruction::INVALID,
                 };
-                if let Instruction::NOP = instruction {
+                if let Instruction::INVALID = instruction {
                     bad_opcode();
                 }
                 // weed out instructions with incompatible addressing modes
@@ -501,7 +505,7 @@ impl Cpu {
                 if bad_combination {
                     bad_opcode();
                 }
-                DecodedInstruction{
+                DecodedInstruction {
                     address,
                     instruction,
                     addressing_mode,
@@ -580,8 +584,8 @@ impl Cpu {
         self.update_flag(set, 0b1000000);
     }
 
-    fn update_negative(&mut self, set: bool) {
-        self.update_flag(set, 0b10000000);
+    fn update_negative_from_byte(&mut self, byte: u8) {
+        self.update_flag(byte & 0x80 == 0x80, 0b10000000);
     }
 
     fn realise_operand(&self, decoded_instruction: &DecodedInstruction, memory: &Memory) -> u16 {
@@ -607,10 +611,8 @@ impl Cpu {
                 let addr = Cpu::get_word(op, memory) + self.y as u16;
                 memory.get_byte(addr) as u16
             },
-            AddressingMode::Indirect => {
-                let addr = Cpu::get_word(op, memory);
-                Cpu::get_word(addr, memory)
-            },
+            AddressingMode::IndirectLocation => Cpu::get_word(op, memory),
+            AddressingMode::AbsoluteLocation => op,
             _ => 0,
         }
     }
@@ -692,6 +694,26 @@ impl Cpu {
         self.pop_byte(memory) as u16 | ((self.pop_byte(memory) as u16) << 8)
     }
 
+    fn decrement_byte(&mut self, byte: u8) -> u8 {
+        let result = if byte == 0 {0xFF} else {byte - 1};
+        self.update_zero(result == 0);
+        self.update_negative_from_byte(result);
+        result
+    }
+
+    fn increment_byte(&mut self, byte: u8) -> u8 {
+        let result = if byte == 0xFF {0} else {byte + 1};
+        self.update_zero(result == 0);
+        self.update_negative_from_byte(result);
+        result
+    }
+
+    fn compare(&mut self, compare_to: u8, byte: u8) {
+        self.update_carry(compare_to >= byte);
+        self.update_zero(compare_to == byte);
+        self.update_negative_from_byte((compare_to as u16 + 0x100 - byte as u16) as u8);
+    }
+
     pub fn initiate_nmi(&mut self, memory: &mut Memory) {
         let pc = self.pc;
         let p = self.p;
@@ -729,7 +751,7 @@ impl Cpu {
                     result & 0xFF
                 };
                 // same rules seem to apply for negative and overflow for bcd
-                self.update_negative(sum & 0x80 == 0x80);
+                self.update_negative_from_byte(sum as u8);
                 self.update_zero(sum == 0);
                 let overflow = (self.a < 128 && sum > 127) ||
                     (self.a > 127 && sum < 128);
@@ -739,13 +761,13 @@ impl Cpu {
             Instruction::AND => {
                 let result = self.a & op as u8;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.a = result;
             },
             Instruction::ASL => {
                 let result = op << 1;
                 self.update_carry(result & 0x100 == 0x100);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result as u8);
                 self.update_zero(result & 0xFF == 0);
                 self.store_to_operand((result & 0xFF) as u8,
                     &decoded_instruction, memory);
@@ -769,7 +791,7 @@ impl Cpu {
                 let result = self.a & op as u8;
                 self.update_zero(result == 0);
                 self.update_overflow(op & 0x40 == 0x40);
-                self.update_negative(op & 0x80 == 0x80);
+                self.update_negative_from_byte(op as u8);
             },
             Instruction::BMI => {
                 if self.negative_set() {
@@ -817,109 +839,82 @@ impl Cpu {
                 self.update_overflow(false);
             },
             Instruction::CMP => {
-                let cmp_a = self.a as u16;
-                self.update_carry(cmp_a >= op);
-                self.update_zero(cmp_a == op);
-                self.update_negative((cmp_a + 0x100 - op) & 0x80 == 0x80);
+                let a = self.a;
+                self.compare(a, op as u8);
             },
             Instruction::CPX => {
-                let cmp_x = self.x as u16;
-                self.update_carry(cmp_x >= op);
-                self.update_zero(cmp_x == op);
-                self.update_negative((cmp_x + 0x100 - op) & 0x80 == 0x80);
+                let x = self.x;
+                self.compare(x, op as u8);
             },
             Instruction::CPY => {
-                let cmp_y = self.y as u16;
-                self.update_carry(cmp_y >= op);
-                self.update_zero(cmp_y == op);
-                self.update_negative((cmp_y + 0x100 - op) & 0x80 == 0x80);
+                let y = self.y;
+                self.compare(y, op as u8);
             },
             Instruction::DEC => {
-                let result = if op == 0 {0xFF} else {op - 1};
-                self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                let result = self.decrement_byte(op as u8);
                 self.store_to_operand(result as u8, &decoded_instruction, memory);
             },
             Instruction::DEX => {
-                let result = if self.x == 0 {0xFF} else {self.x - 1};
-                self.update_zero(result == 0);
-                self.update_negative(result &0x80 == 0x80);
-                self.x = result;
+                let x = self.x;
+                self.x = self.decrement_byte(x);
             },
             Instruction::DEY => {
-                let result = if self.y == 0 {0xFF} else {self.y - 1};
-                self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
-                self.y = result;
+                let y = self.y;
+                self.y = self.decrement_byte(y);
             },
             Instruction::EOR => {
                 let result = self.a ^ op as u8;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.a = result;
             },
             Instruction::INC => {
-                let result = (op + 1) & 0xFF;
-                self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                let result = self.increment_byte(op as u8);
                 self.store_to_operand(result as u8, &decoded_instruction, memory);
             },
             Instruction::INX => {
-                let result = if self.x == 0xFF {0} else {self.x + 1};
-                self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
-                self.x = result;
+                let x = self.x;
+                self.x = self.increment_byte(x);
             },
             Instruction::INY => {
-                let result = if self.y == 0xFF {0} else {self.y + 1};
-                self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
-                self.y = result;
+                let y = self.y;
+                self.y = self.increment_byte(y);
             },
             Instruction::JMP => {
-                if let Some(addr) = decoded_instruction.operand {
-                    if let AddressingMode::Absolute = decoded_instruction.addressing_mode {
-                        self.pc = addr;
-                    }
-                    else {
-                        self.pc = Cpu::get_word(addr, memory);
-                    }
-                }
+                self.pc = op;
             },
             Instruction::JSR => {
                 let ret_addr = self.pc - 1;
                 self.push_word(ret_addr, memory);
-                if let Some(addr) = decoded_instruction.operand {
-                    self.pc = addr;
-                }
+                self.pc = op;
             },
             Instruction::LDA => {
                 self.update_zero(op == 0);
-                self.update_negative(op & 0x80 == 0x80);
+                self.update_negative_from_byte(op as u8);
                 self.a = op as u8;
             },
             Instruction::LDX => {
                 self.update_zero(op == 0);
-                self.update_negative(op & 0x80 == 0x80);
+                self.update_negative_from_byte(op as u8);
                 self.x = op as u8;
             },
             Instruction::LDY => {
                 self.update_zero(op == 0);
-                self.update_negative(op & 0x80 == 0x80);
+                self.update_negative_from_byte(op as u8);
                 self.y = op as u8;
             },
             Instruction::LSR => {
                 self.update_carry(op & 0x1 == 0x1);
                 let result = op >> 1;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result as u8);
                 self.store_to_operand(result as u8, &decoded_instruction, memory);
             },
             Instruction::NOP => {},
             Instruction::ORA => {
                 let result = self.a | op as u8;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.a = result;
             },
             Instruction::PHA => {
@@ -933,7 +928,7 @@ impl Cpu {
             Instruction::PLA => {
                 let result = self.pop_byte(memory);
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.a = result;
             },
             Instruction::PLP => {
@@ -943,7 +938,7 @@ impl Cpu {
                 let result = op << 1 | if self.carry_set() {1} else {0};
                 self.update_carry(result & 0x100 == 0x100);
                 self.update_zero(result & 0xFF == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result as u8);
                 self.store_to_operand((result & 0xFF) as u8,
                     &decoded_instruction, memory);
 
@@ -953,7 +948,7 @@ impl Cpu {
                 let result = op >> 1 | if self.carry_set() {0x80} else {0};
                 self.update_carry(carry);
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result as u8);
                 self.store_to_operand(result as u8, &decoded_instruction, memory);
             },
             Instruction::RTI => {
@@ -988,7 +983,7 @@ impl Cpu {
                     (result & 0xFF) as u8
                 };
                 // same rules seem to apply for negative and overflow for bcd
-                self.update_negative(sub & 0x80 == 0x80);
+                self.update_negative_from_byte(sub as u8);
                 self.update_zero(sub == 0);
                 let overflow = (self.a < 128 && (sub & 0xFF) > 127) ||
                     (self.a > 127 && (sub & 0xFF) < 128);
@@ -1019,25 +1014,25 @@ impl Cpu {
             Instruction::TAX => {
                 let result = self.a;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.x = result;
             },
             Instruction::TAY => {
                 let result = self.a;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.y = result;
             },
             Instruction::TSX => {
                 let result = self.s;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.x = result;
             },
             Instruction::TXA => {
                 let result = self.x;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.a = result;
             },
             Instruction::TXS => {
@@ -1046,9 +1041,10 @@ impl Cpu {
             Instruction::TYA => {
                 let result = self.y;
                 self.update_zero(result == 0);
-                self.update_negative(result & 0x80 == 0x80);
+                self.update_negative_from_byte(result);
                 self.a = result;
             },
+            Instruction::INVALID => {},
         }
 	let cycles = self.instruction_cycles(&decoded_instruction, memory);
         self.cycle += cycles;
@@ -1138,8 +1134,8 @@ impl Cpu {
             Instruction::TXS | Instruction::TXA | Instruction::TYA => 2,
             Instruction::JMP => {
                 match decoded_instruction.addressing_mode {
-                    AddressingMode::Absolute => 3,
-                    AddressingMode::Indirect => 5,
+                    AddressingMode::AbsoluteLocation => 3,
+                    AddressingMode::IndirectLocation => 5,
                     _ => 0,
                 }
             },
@@ -1158,6 +1154,7 @@ impl Cpu {
                     _ => 0,
                 }
             },
+            Instruction::INVALID => 0,
         }
     }
 }
