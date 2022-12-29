@@ -5,6 +5,7 @@ authors = ["Paul Marshall <paulama@ftml.net>"]
 
 [dependencies]
 find_folder = "0.3.0"
+serialport = "^3.2"
 
 [dependencies.sdl2]
 version = "0.31"
