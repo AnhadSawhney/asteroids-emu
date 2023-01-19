@@ -69,7 +69,7 @@ fn main() {
 
     // Open the serial port
     let mut port: Option<Box<dyn SerialPort>> =
-        match serialport::open_with_settings("/dev/ttyUSB0", &settings) {
+        match serialport::open_with_settings("/dev/ttyACM1", &settings) {
             Ok(port) => Some(port),
             Err(e) => {
                 println!("Error opening serial port: {}", e);

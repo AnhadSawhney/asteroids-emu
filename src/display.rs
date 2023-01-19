@@ -27,6 +27,8 @@ pub struct Dvg {
     sp: usize,
     debug_mode: bool,
     serialoutput: bool,
+    packet: [u8; 64],
+    packetidx: i16,
 }
 
 impl Dvg {
@@ -40,6 +42,8 @@ impl Dvg {
             sp: 0,
             debug_mode,
             serialoutput,
+            packet: [0; 64],
+            packetidx: 0,
         }
     }
 
@@ -50,6 +54,8 @@ impl Dvg {
         self.sf = 0;
         self.stack = [0; 4];
         self.sp = 0;
+        self.packet = [0; 64];
+        self.packetidx = 0;
     }
 
     fn load_from_pc(&mut self, memory: &Memory) -> u16 {
@@ -93,12 +99,23 @@ impl Dvg {
             let (w, h) = canvas.output_size().unwrap();
 
             if let Some(port) = port {
-                port.write(&[z as u8]).ok();
-                let a = Dvg::screen_x(x, w);
-                let b = Dvg::screen_y(y, h);
+                //port.write(&[z as u8]).ok();
+                //let a = x; //Dvg::screen_x(x, w); // 0 to 1024
+                //let b = y; //Dvg::screen_y(y, h); // 0 to 1024
                 // send a and b one byte at a time
-                port.write(&[(a & 0x00FF) as u8, (a >> 8) as u8]).ok();
-                port.write(&[(b & 0x00FF) as u8, (b >> 8) as u8]).ok();
+                //port.write(&[(a & 0x00FF) as u8, (a >> 8) as u8]).ok();
+                //port.write(&[(b & 0x00FF) as u8, (b >> 8) as u8]).ok();
+                let i = self.packetidx as usize;
+                self.packet[i] = z as u8;
+                self.packet[i + 1] = (x & 0x00FF) as u8;
+                self.packet[i + 2] = (x >> 8) as u8;
+                self.packet[i + 3] = (y & 0x00FF) as u8;
+                self.packet[i + 4] = (y >> 8) as u8;
+                self.packetidx += 5;
+                if (self.packetidx >= 60) {
+                    port.write(&self.packet).ok();
+                    self.packetidx = 0;
+                }
             }
         }
     }
