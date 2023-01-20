@@ -63,7 +63,7 @@ fn main() {
 
     let mut settings: SerialPortSettings = Default::default();
     settings.timeout = Duration::from_millis(10);
-    settings.baud_rate = 115200;
+    settings.baud_rate = 921600;
 
     let mut serialoutput = true;
 

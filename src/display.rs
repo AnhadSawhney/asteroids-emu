@@ -27,7 +27,7 @@ pub struct Dvg {
     sp: usize,
     debug_mode: bool,
     serialoutput: bool,
-    packet: [u8; 64],
+    packet: [u8; 60],
     packetidx: i16,
 }
 
@@ -42,7 +42,7 @@ impl Dvg {
             sp: 0,
             debug_mode,
             serialoutput,
-            packet: [0; 64],
+            packet: [0; 60],
             packetidx: 0,
         }
     }
@@ -54,7 +54,7 @@ impl Dvg {
         self.sf = 0;
         self.stack = [0; 4];
         self.sp = 0;
-        self.packet = [0; 64];
+        self.packet = [0; 60];
         self.packetidx = 0;
     }
 
@@ -96,26 +96,60 @@ impl Dvg {
         port: &mut Option<Box<dyn SerialPort>>,
     ) {
         if self.serialoutput {
-            let (w, h) = canvas.output_size().unwrap();
+            //let (w, h) = canvas.output_size().unwrap();
 
             if let Some(port) = port {
-                //port.write(&[z as u8]).ok();
-                //let a = x; //Dvg::screen_x(x, w); // 0 to 1024
-                //let b = y; //Dvg::screen_y(y, h); // 0 to 1024
-                // send a and b one byte at a time
-                //port.write(&[(a & 0x00FF) as u8, (a >> 8) as u8]).ok();
-                //port.write(&[(b & 0x00FF) as u8, (b >> 8) as u8]).ok();
-                let i = self.packetidx as usize;
+                // x and y are 0 to 1024
+
+                // skip text and other nonsense
+                if y > 850 && y < 1000 {
+                    return;
+                }
+
+                if x > 150 && y > 835 && x < 220 && y < 870 {
+                    return; // LIVES
+                }
+
+                if x > 395 && y > 785 && x < 640 && y < 825 {
+                    return; // PRESS START
+                }
+
+                if x > 395 && y > 120 && x < 585 && y < 145 {
+                    return; // COPYRIGHT ATARI
+                }
+
+                //let dist = (x - self.x) * (x - self.x) + (y - self.y) * (y - self.y);
+
+                //let mut c = z;
+
+                //if dist > 400 {
+                //    c = 0;
+                //    println!("Long");
+                //}
+
+                let a = x as u16;
+                let b = y as u16;
+                let out = [z as u8, (a >> 8) as u8, a as u8, (b >> 8) as u8, b as u8];
+                port.write(&out).ok();
+
+                println!(
+                    "Sending: {},{},{},{},{}",
+                    out[0], out[1], out[2], out[3], out[4]
+                );
+
+                // dont packetize. USB bandwith is not the limit, i2c execution is
+
+                /*let i = self.packetidx as usize;
                 self.packet[i] = z as u8;
-                self.packet[i + 1] = (x & 0x00FF) as u8;
-                self.packet[i + 2] = (x >> 8) as u8;
-                self.packet[i + 3] = (y & 0x00FF) as u8;
-                self.packet[i + 4] = (y >> 8) as u8;
+                self.packet[i + 1] = (a >> 8) as u8;
+                self.packet[i + 2] = a as u8;
+                self.packet[i + 3] = (b >> 8) as u8;
+                self.packet[i + 4] = b as u8;
                 self.packetidx += 5;
                 if (self.packetidx >= 60) {
                     port.write(&self.packet).ok();
                     self.packetidx = 0;
-                }
+                }*/
             }
         }
     }
@@ -137,6 +171,22 @@ impl Dvg {
                     Dvg::screen_y(self.y, h),
                     color,
                 );
+
+                /*let _ = canvas.rectangle(
+                    Dvg::screen_x(150, w),
+                    Dvg::screen_y(870, h),
+                    Dvg::screen_x(220, w),
+                    Dvg::screen_y(835, h),
+                    color,
+                );*/
+
+                /*let _ = canvas.rectangle(
+                    Dvg::screen_x(395, w),
+                    Dvg::screen_y(120, h),
+                    Dvg::screen_x(585, w),
+                    Dvg::screen_y(145, h),
+                    color,
+                );*/
             }
         }
         self.x = x;
@@ -166,6 +216,13 @@ impl Dvg {
             self.execute_instruction(memory, canvas, port);
         }
         canvas.present();
+        self.send_command(0, 0, 0, canvas, port);
+        self.send_command(0, 0, 12, canvas, port);
+        self.send_command(1023, 0, 12, canvas, port);
+        self.send_command(1023, 1023, 12, canvas, port);
+        self.send_command(0, 1023, 12, canvas, port);
+        self.send_command(0, 0, 12, canvas, port);
+        self.send_command(512, 512, 0, canvas, port);
     }
 
     fn execute_instruction(
@@ -206,8 +263,8 @@ impl Dvg {
                 let shift_bits = 9 - ((op_word1 & 0xF000) >> 12) as i16 + self.sf;
                 let x = self.x + Dvg::shift(delta_x, shift_bits) as i16 * if xs { -1 } else { 1 };
                 let y = self.y + Dvg::shift(delta_y, shift_bits) as i16 * if ys { -1 } else { 1 };
-                self.line(x, y, z, canvas);
                 self.send_command(x, y, z, canvas, port);
+                self.line(x, y, z, canvas);
             }
             Instruction::LABS => {
                 // CUR
@@ -268,8 +325,8 @@ impl Dvg {
                 let shift_bits = (7 - sf as i16) + self.sf;
                 let x = self.x + Dvg::shift(delta_x, shift_bits) as i16 * if xs { -1 } else { 1 };
                 let y = self.y + Dvg::shift(delta_y, shift_bits) as i16 * if ys { -1 } else { 1 };
-                self.line(x, y, z, canvas);
                 self.send_command(x, y, z, canvas, port);
+                self.line(x, y, z, canvas);
             }
         };
     }
