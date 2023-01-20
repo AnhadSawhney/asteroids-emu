@@ -4,6 +4,8 @@ use sdl2::pixels;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use serialport::prelude::*;
+use std::thread::sleep;
+use std::time::Duration;
 
 use memory::Memory;
 
@@ -136,6 +138,8 @@ impl Dvg {
                 let b = y as u16;
                 let out = [z as u8, (a >> 8) as u8, a as u8, (b >> 8) as u8, b as u8];
                 port.write(&out).ok();
+
+                sleep(Duration::from_micros(50));
 
                 //println!(
                 //    "Sending: {},{},{},{},{}",

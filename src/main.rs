@@ -24,6 +24,7 @@ use std::time::{Duration, Instant};
 const SCREEN_WIDTH: u32 = 10240; // i.e. bigger than maximised dimensions
 const NMI_CYCLES: u64 = 6000;
 const TICKS_PER_SLEEP: u32 = 20;
+const SLOWDOWN_FACTOR: f64 = 1.0;
 
 use cpu::Cpu;
 use display::Dvg;
@@ -55,7 +56,10 @@ fn main() {
     let _mixer_context = sdl2::mixer::init(INIT_OGG).unwrap();
     Channel::all().set_volume(MAX_VOLUME / 2);
 
-    let tick_time = Duration::new(0, 1000000000 / 3000 * TICKS_PER_SLEEP);
+    let tick_time = Duration::new(
+        0,
+        (1000000000f64 / 3000f64 * SLOWDOWN_FACTOR * TICKS_PER_SLEEP as f64) as u32,
+    );
 
     let mut canvas = window.into_canvas().build().unwrap();
 
@@ -69,7 +73,7 @@ fn main() {
 
     // Open the serial port
     let mut port: Option<Box<dyn SerialPort>> =
-        match serialport::open_with_settings("/dev/ttyACM1", &settings) {
+        match serialport::open_with_settings("/dev/ttyACM2", &settings) {
             Ok(port) => Some(port),
             Err(e) => {
                 println!("Error opening serial port: {}", e);
