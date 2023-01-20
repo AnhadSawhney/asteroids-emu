@@ -5,14 +5,14 @@ use std::fs::File;
 use std::io::prelude::*;
 
 pub struct MappedIO {
-    pub clck3khz: u8,   // from 0x2001
+    pub clck3khz: u8, // from 0x2001
     pub halt: u8,
     pub swhyper: u8,
     pub swfire: u8,
     //swdiagst: u8,
     //swslam: u8,
     //swtest: u8,
-    
+
     //swlcoin: u8,    // from 0x2400
     //swccoin: u8,
     //swrcoin: u8,
@@ -26,8 +26,7 @@ pub struct MappedIO {
     //swcnrmult: u8,
     //swcncmult: u8,
     //swlanguage: u8,
-
-    pub godvg: u8,    // 0x3000
+    pub godvg: u8, // 0x3000
     //lmpscns: u8,  // 0x3200
     //watchdog: u8, // 0x3400
     pub sndexp: u8,   // 0x3600
@@ -48,7 +47,7 @@ impl MappedIO {
             halt: 0,
             swhyper: 0,
             swfire: 0,
-    
+
             sw1start: 0,
             swthrust: 0,
             swrotrght: 0,
@@ -69,16 +68,16 @@ impl MappedIO {
 }
 
 pub struct Memory {
-    game_ram: [u8; 1024],    // 0000-03FF / 8000-83FF
-    dvg_ram: [u8; 4096],     // 4000-4FFF / C000-CFFF
-    dvg_rom: [u8; 2048],     // 5000-57FF / D000-D7FF
-    game_rom: [u8; 6144],    // 6800-7FFF / E800-FFFF
-    pub mapped_io: MappedIO, 
+    game_ram: [u8; 1024], // 0000-03FF / 8000-83FF
+    dvg_ram: [u8; 4096],  // 4000-4FFF / C000-CFFF
+    dvg_rom: [u8; 2048],  // 5000-57FF / D000-D7FF
+    game_rom: [u8; 6144], // 6800-7FFF / E800-FFFF
+    pub mapped_io: MappedIO,
 }
 
 impl Memory {
-    pub fn new () -> Memory {
-        let mut memory = Memory{
+    pub fn new() -> Memory {
+        let mut memory = Memory {
             game_ram: [0; 1024],
             dvg_ram: [0; 4096],
             dvg_rom: [0; 2048],
@@ -86,7 +85,9 @@ impl Memory {
             mapped_io: MappedIO::new(),
         };
 
-        let assets = find_folder::Search::ParentsThenKids(3, 3).for_folder("assets").unwrap();
+        let assets = find_folder::Search::ParentsThenKids(3, 3)
+            .for_folder("assets")
+            .unwrap();
         let rom_file = assets.join("asteroids.rom");
         let mut file = File::open(rom_file).expect("Error opening ROM file");
         file.read_exact(&mut memory.dvg_rom).unwrap();
@@ -118,41 +119,41 @@ impl Memory {
         match addr {
             a if a < 0x400 => {
                 self.game_ram[a] = byte;
-            },
+            }
             a if a >= 0x4000 && a < 0x5000 => {
                 self.dvg_ram[a - 0x4000] = byte;
-            },
+            }
             0x2001 => {
                 self.mapped_io.clck3khz = byte;
-            },
+            }
             0x3000 => {
                 self.mapped_io.godvg = byte;
-            },
+            }
             0x3600 => {
                 self.mapped_io.sndexp = byte;
-            },
+            }
             0x3A00 => {
                 self.mapped_io.sndthump = byte;
-            },
+            }
             0x3C00 => {
                 self.mapped_io.sndsaucr = byte;
-            },
+            }
             0x3C01 => {
                 self.mapped_io.sndsfire = byte;
-            },
+            }
             0x3C02 => {
                 self.mapped_io.sndselsau = byte;
-            },
+            }
             0x3C03 => {
                 self.mapped_io.sndthrust = byte;
-            },
+            }
             0x3C04 => {
                 self.mapped_io.sndfire = byte;
-            },
+            }
             0x3C05 => {
                 self.mapped_io.sndbonus = byte;
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }

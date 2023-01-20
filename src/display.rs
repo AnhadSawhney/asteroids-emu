@@ -127,15 +127,20 @@ impl Dvg {
                 //    println!("Long");
                 //}
 
+                if z == 15 {
+                    // skip drawing bullets
+                    return;
+                }
+
                 let a = x as u16;
                 let b = y as u16;
                 let out = [z as u8, (a >> 8) as u8, a as u8, (b >> 8) as u8, b as u8];
                 port.write(&out).ok();
 
-                println!(
-                    "Sending: {},{},{},{},{}",
-                    out[0], out[1], out[2], out[3], out[4]
-                );
+                //println!(
+                //    "Sending: {},{},{},{},{}",
+                //    out[0], out[1], out[2], out[3], out[4]
+                //);
 
                 // dont packetize. USB bandwith is not the limit, i2c execution is
 
@@ -156,7 +161,30 @@ impl Dvg {
 
     fn line(&mut self, x: i16, y: i16, z: u16, canvas: &mut Canvas<Window>) {
         if z != 0 {
-            let color = pixels::Color::RGBA(255, 255, 255, z as u8 * 17);
+            let mut color = pixels::Color::RGBA(255, 255, 255, z as u8 * 17);
+
+            match z {
+                7 => {
+                    color = pixels::Color::RGBA(255, 0, 0, 255);
+                }
+                8 => {
+                    color = pixels::Color::RGBA(0, 255, 0, 255);
+                }
+                9 => {
+                    color = pixels::Color::RGBA(0, 0, 255, 255);
+                }
+                10 => {
+                    color = pixels::Color::RGBA(255, 255, 0, 255);
+                }
+                11 => {
+                    color = pixels::Color::RGBA(255, 0, 255, 255);
+                }
+                12 => {
+                    color = pixels::Color::RGBA(0, 255, 255, 255);
+                }
+                _ => {}
+            }
+
             let (w, h) = canvas.output_size().unwrap();
 
             if x == self.x && y == self.y {
@@ -216,12 +244,19 @@ impl Dvg {
             self.execute_instruction(memory, canvas, port);
         }
         canvas.present();
+        /*self.send_command(0, 95, 0, canvas, port);
+        self.send_command(0, 95, 12, canvas, port);
+        self.send_command(1023, 95, 12, canvas, port);
+        self.send_command(1023, 928, 12, canvas, port);
+        self.send_command(0, 928, 12, canvas, port);
+        self.send_command(0, 95, 12, canvas, port);
+        self.send_command(512, 512, 0, canvas, port);*/
         self.send_command(0, 0, 0, canvas, port);
-        self.send_command(0, 0, 12, canvas, port);
-        self.send_command(1023, 0, 12, canvas, port);
-        self.send_command(1023, 1023, 12, canvas, port);
-        self.send_command(0, 1023, 12, canvas, port);
-        self.send_command(0, 0, 12, canvas, port);
+        self.send_command(0, 0, 11, canvas, port);
+        self.send_command(1023, 0, 11, canvas, port);
+        self.send_command(1023, 1023, 11, canvas, port);
+        self.send_command(0, 1023, 11, canvas, port);
+        self.send_command(0, 0, 11, canvas, port);
         self.send_command(512, 512, 0, canvas, port);
     }
 
